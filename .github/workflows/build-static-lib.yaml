@@ -51,6 +51,9 @@ jobs:
         run: |
           brew install opencv@4
           brew link opencv@4
+          # Create symlink for WORKSPACE path
+          sudo mkdir -p /usr/local/opencv4
+          sudo ln -sf $(brew --prefix opencv@4)/* /usr/local/opencv4/
 
       - name: Build pose_landmarker_lib
         run: |
@@ -124,6 +127,9 @@ jobs:
         run: |
           brew install opencv@4
           brew link opencv@4
+          # Create symlink for WORKSPACE path
+          sudo mkdir -p /usr/local/opencv4
+          sudo ln -sf $(brew --prefix opencv@4)/* /usr/local/opencv4/
 
       - name: Build pose_landmarker_lib
         run: |
@@ -196,12 +202,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev libopencv-contrib-dev
+          sudo apt-get install -y libopencv-dev libopencv-contrib-dev gcc-12 g++-12
+          # Set GCC 12 as default (supports newer AVX instructions)
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
 
       - name: Build pose_landmarker_lib
         run: |
           bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
+            --action_env=CC=gcc-12 --action_env=CXX=g++-12 \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
 
       - name: Merge static libraries
@@ -287,18 +297,40 @@ jobs:
             --disk_cache=$env:LOCALAPPDATA\bazel `
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
 
-      - name: Collect static libraries
+      - name: Merge static libraries
         shell: pwsh
         run: |
-          $libs = Get-ChildItem -Path bazel-bin -Recurse -Filter "*.lib" | Select-Object -ExpandProperty FullName
-          $libs += Get-ChildItem -Path bazel-bin -Recurse -Filter "*.a" | Select-Object -ExpandProperty FullName
+          # Find all .lib files
+          $libs = Get-ChildItem -Path bazel-bin -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
 
+          if ($libs.Count -gt 0) {
+            # Use lib.exe to merge all static libraries
+            $libArgs = "/OUT:libpose_landmarker.lib " + ($libs -join " ")
+            Invoke-Expression "lib.exe $libArgs"
+          }
+
+          # Show result
+          if (Test-Path "libpose_landmarker.lib") {
+            Get-Item "libpose_landmarker.lib" | Select-Object Name, Length
+          } else {
+            Write-Host "Warning: libpose_landmarker.lib not created, falling back to individual libs"
+          }
+
+      - name: Collect files
+        shell: pwsh
+        run: |
           New-Item -ItemType Directory -Force -Path dist\lib
           New-Item -ItemType Directory -Force -Path dist\include
 
-          # Copy main library
-          Copy-Item "bazel-bin\mediapipe\tasks\c\vision\pose_landmarker\pose_landmarker_lib.lib" -Destination "dist\lib\" -ErrorAction SilentlyContinue
-          Copy-Item "bazel-bin\mediapipe\tasks\c\vision\pose_landmarker\libpose_landmarker_lib.a" -Destination "dist\lib\libpose_landmarker.a" -ErrorAction SilentlyContinue
+          # Copy merged library or fallback to individual
+          if (Test-Path "libpose_landmarker.lib") {
+            Copy-Item "libpose_landmarker.lib" -Destination "dist\lib\"
+          } else {
+            # Fallback: copy individual libs
+            Get-ChildItem -Path bazel-bin -Recurse -Filter "*.lib" | ForEach-Object {
+              Copy-Item $_.FullName -Destination "dist\lib\" -ErrorAction SilentlyContinue
+            }
+          }
 
           # Copy headers
           Copy-Item "mediapipe\tasks\c\vision\pose_landmarker\pose_landmarker.h" -Destination "dist\include\"
@@ -309,6 +341,9 @@ jobs:
           Copy-Item "mediapipe\tasks\c\vision\core\image.h" -Destination "dist\include\"
           Copy-Item "mediapipe\tasks\c\vision\core\image_processing_options.h" -Destination "dist\include\"
           Copy-Item "mediapipe\tasks\c\components\containers\landmark.h" -Destination "dist\include\"
+
+          # Show what we collected
+          Get-ChildItem -Recurse dist
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
