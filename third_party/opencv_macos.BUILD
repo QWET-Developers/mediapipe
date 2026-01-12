@@ -35,24 +35,25 @@ exports_files(["LICENSE"])
 # "include/opencv4/opencv2/**/*.h*" and the include prefix needs to be set to
 # "include/opencv4".
 
-PREFIX = "opt/opencv@3"
+# OpenCV 4 configuration - Custom build without protobuf/DNN
+# Path is set to /usr/local/opencv4 in WORKSPACE
 
 cc_library(
     name = "opencv",
     srcs = glob(
         [
-            paths.join(PREFIX, "lib/libopencv_core.dylib"),
-            paths.join(PREFIX, "lib/libopencv_calib3d.dylib"),
-            paths.join(PREFIX, "lib/libopencv_features2d.dylib"),
-            paths.join(PREFIX, "lib/libopencv_highgui.dylib"),
-            paths.join(PREFIX, "lib/libopencv_imgcodecs.dylib"),
-            paths.join(PREFIX, "lib/libopencv_imgproc.dylib"),
-            paths.join(PREFIX, "lib/libopencv_video.dylib"),
-            paths.join(PREFIX, "lib/libopencv_videoio.dylib"),
+            "lib/libopencv_core.dylib",
+            "lib/libopencv_calib3d.dylib",
+            "lib/libopencv_features2d.dylib",
+            "lib/libopencv_highgui.dylib",
+            "lib/libopencv_imgcodecs.dylib",
+            "lib/libopencv_imgproc.dylib",
+            "lib/libopencv_video.dylib",
+            "lib/libopencv_videoio.dylib",
         ],
     ),
-    hdrs = glob([paths.join(PREFIX, "include/opencv2/**/*.h*")]),
-    includes = [paths.join(PREFIX, "include/")],
+    hdrs = glob(["include/opencv4/opencv2/**/*.h*"]),
+    includes = ["include/opencv4/"],
     linkstatic = 1,
     visibility = ["//visibility:public"],
 )

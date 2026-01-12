@@ -1,0 +1,350 @@
+name: Build Static Library
+
+on:
+  push:
+    branches: [master, main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  BAZEL_CACHE_DIR: ~/.cache/bazel
+
+jobs:
+  build-macos-arm64:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install numpy
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-macos-arm64
+          repository-cache: true
+          bazelisk-version: 1.x
+
+      - name: Cache Bazel build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: bazel-macos-arm64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-macos-arm64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-
+            bazel-macos-arm64-
+
+      - name: Install OpenCV
+        run: |
+          brew install opencv@4
+          brew link opencv@4
+
+      - name: Build pose_landmarker_lib
+        run: |
+          bazel build --config darwin_arm64 -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+            --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+
+      - name: Merge static libraries
+        run: |
+          libtool -static -o libpose_landmarker.a $(find -L bazel-bin -name "*.a" 2>/dev/null)
+          ls -lh libpose_landmarker.a
+
+      - name: Verify symbols
+        run: |
+          nm -g libpose_landmarker.a | grep "T _MpPoseLandmarker"
+
+      - name: Collect headers
+        run: |
+          mkdir -p dist/include
+          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker.h dist/include/
+          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker_result.h dist/include/
+          cp mediapipe/tasks/c/core/base_options.h dist/include/
+          cp mediapipe/tasks/c/core/common.h dist/include/
+          cp mediapipe/tasks/c/core/mp_status.h dist/include/
+          cp mediapipe/tasks/c/vision/core/image.h dist/include/
+          cp mediapipe/tasks/c/vision/core/image_processing_options.h dist/include/
+          cp mediapipe/tasks/c/components/containers/landmark.h dist/include/
+          mv libpose_landmarker.a dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libpose_landmarker-macos-arm64
+          path: dist/
+
+  build-macos-x64:
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install numpy
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-macos-x64
+          repository-cache: true
+          bazelisk-version: 1.x
+
+      - name: Cache Bazel build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: bazel-macos-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-macos-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-
+            bazel-macos-x64-
+
+      - name: Install OpenCV
+        run: |
+          brew install opencv@4
+          brew link opencv@4
+
+      - name: Build pose_landmarker_lib
+        run: |
+          bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+            --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+
+      - name: Merge static libraries
+        run: |
+          libtool -static -o libpose_landmarker.a $(find -L bazel-bin -name "*.a" 2>/dev/null)
+          ls -lh libpose_landmarker.a
+
+      - name: Verify symbols
+        run: |
+          nm -g libpose_landmarker.a | grep "T _MpPoseLandmarker"
+
+      - name: Collect headers
+        run: |
+          mkdir -p dist/include
+          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker.h dist/include/
+          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker_result.h dist/include/
+          cp mediapipe/tasks/c/core/base_options.h dist/include/
+          cp mediapipe/tasks/c/core/common.h dist/include/
+          cp mediapipe/tasks/c/core/mp_status.h dist/include/
+          cp mediapipe/tasks/c/vision/core/image.h dist/include/
+          cp mediapipe/tasks/c/vision/core/image_processing_options.h dist/include/
+          cp mediapipe/tasks/c/components/containers/landmark.h dist/include/
+          mv libpose_landmarker.a dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libpose_landmarker-macos-x64
+          path: dist/
+
+  build-linux-x64:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install numpy
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-linux-x64
+          repository-cache: true
+          bazelisk-version: 1.x
+
+      - name: Cache Bazel build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: bazel-linux-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-linux-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-
+            bazel-linux-x64-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev libopencv-contrib-dev
+
+      - name: Build pose_landmarker_lib
+        run: |
+          bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+            --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+
+      - name: Merge static libraries
+        run: |
+          find -L bazel-bin -name "*.a" -exec ar -t {} \; > /dev/null 2>&1 || true
+          # Extract all .a files and create merged archive
+          mkdir -p merge_tmp && cd merge_tmp
+          for ar_file in $(find -L ../bazel-bin -name "*.a" 2>/dev/null); do
+            ar -x "$ar_file" 2>/dev/null || true
+          done
+          ar rcs ../libpose_landmarker.a *.o 2>/dev/null || true
+          cd .. && rm -rf merge_tmp
+          ls -lh libpose_landmarker.a
+
+      - name: Verify symbols
+        run: |
+          nm -g libpose_landmarker.a | grep "T MpPoseLandmarker" || nm -g libpose_landmarker.a | grep "T _MpPoseLandmarker"
+
+      - name: Collect headers
+        run: |
+          mkdir -p dist/include
+          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker.h dist/include/
+          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker_result.h dist/include/
+          cp mediapipe/tasks/c/core/base_options.h dist/include/
+          cp mediapipe/tasks/c/core/common.h dist/include/
+          cp mediapipe/tasks/c/core/mp_status.h dist/include/
+          cp mediapipe/tasks/c/vision/core/image.h dist/include/
+          cp mediapipe/tasks/c/vision/core/image_processing_options.h dist/include/
+          cp mediapipe/tasks/c/components/containers/landmark.h dist/include/
+          mv libpose_landmarker.a dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libpose_landmarker-linux-x64
+          path: dist/
+
+  build-windows-x64:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install numpy
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-windows-x64
+          repository-cache: true
+          bazelisk-version: 1.x
+
+      - name: Cache Bazel build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\bazel
+            ~\.cache\bazelisk
+          key: bazel-windows-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-windows-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-
+            bazel-windows-x64-
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install OpenCV
+        run: |
+          choco install opencv -y
+          echo "OPENCV_DIR=C:\tools\opencv\build" >> $env:GITHUB_ENV
+
+      - name: Build pose_landmarker_lib
+        run: |
+          bazel build -c opt --define MEDIAPIPE_DISABLE_GPU=1 `
+            --disk_cache=$env:LOCALAPPDATA\bazel `
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+
+      - name: Collect static libraries
+        shell: pwsh
+        run: |
+          $libs = Get-ChildItem -Path bazel-bin -Recurse -Filter "*.lib" | Select-Object -ExpandProperty FullName
+          $libs += Get-ChildItem -Path bazel-bin -Recurse -Filter "*.a" | Select-Object -ExpandProperty FullName
+
+          New-Item -ItemType Directory -Force -Path dist\lib
+          New-Item -ItemType Directory -Force -Path dist\include
+
+          # Copy main library
+          Copy-Item "bazel-bin\mediapipe\tasks\c\vision\pose_landmarker\pose_landmarker_lib.lib" -Destination "dist\lib\" -ErrorAction SilentlyContinue
+          Copy-Item "bazel-bin\mediapipe\tasks\c\vision\pose_landmarker\libpose_landmarker_lib.a" -Destination "dist\lib\libpose_landmarker.a" -ErrorAction SilentlyContinue
+
+          # Copy headers
+          Copy-Item "mediapipe\tasks\c\vision\pose_landmarker\pose_landmarker.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\vision\pose_landmarker\pose_landmarker_result.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\core\base_options.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\core\common.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\core\mp_status.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\vision\core\image.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\vision\core\image_processing_options.h" -Destination "dist\include\"
+          Copy-Item "mediapipe\tasks\c\components\containers\landmark.h" -Destination "dist\include\"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libpose_landmarker-windows-x64
+          path: dist/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos-arm64, build-macos-x64, build-linux-x64, build-windows-x64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create archives
+        run: |
+          cd artifacts/libpose_landmarker-macos-arm64
+          tar czvf ../../libpose_landmarker-macos-arm64.tar.gz .
+          cd ../libpose_landmarker-macos-x64
+          tar czvf ../../libpose_landmarker-macos-x64.tar.gz .
+          cd ../libpose_landmarker-linux-x64
+          tar czvf ../../libpose_landmarker-linux-x64.tar.gz .
+          cd ../libpose_landmarker-windows-x64
+          zip -r ../../libpose_landmarker-windows-x64.zip .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            libpose_landmarker-macos-arm64.tar.gz
+            libpose_landmarker-macos-x64.tar.gz
+            libpose_landmarker-linux-x64.tar.gz
+            libpose_landmarker-windows-x64.zip
+          generate_release_notes: true

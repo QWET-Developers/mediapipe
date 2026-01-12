@@ -7,7 +7,7 @@ common --experimental_repo_remote_exec
 common --noenable_bzlmod
 
 # Turn off toolchain resolution for cc rules and android rules.
-common --noincompatible_enable_cc_toolchain_resolution
+common --incompatible_enable_cc_toolchain_resolution
 common --noincompatible_enable_android_toolchain_resolution
 
 # Basic build settings
@@ -41,6 +41,7 @@ build:macos --cxxopt=-std=c++20
 build:macos --host_cxxopt=-std=c++20
 build:macos --copt=-w
 build:macos --define=xnn_enable_avx512amx=false
+build:macos --extra_toolchains=@build_bazel_apple_support//crosstool:all
 
 # Sets the default Apple platform to macOS.
 build --apple_platform_type=macos

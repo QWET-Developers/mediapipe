@@ -5,3 +5,10 @@ mediapipe/provisioning_profile.mobileprovision
 node_modules/
 .configure.bazelrc
 .user.bazelrc
+
+# Build artifacts
+*.a
+*.dylib
+*.so
+*.lib
+dist/

@@ -2,6 +2,13 @@ workspace(name = "mediapipe")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+# Apple support for macOS Tahoe 26 compatibility (must be before rules_cc)
+http_archive(
+    name = "build_bazel_apple_support",
+    sha256 = "1ae6fcf983cff3edab717636f91ad0efff2e5ba75607fdddddfd6ad0dbdfaf10",
+    url = "https://github.com/bazelbuild/apple_support/releases/download/1.24.5/apple_support.1.24.5.tar.gz",
+)
+
 # Protobuf expects an //external:python_headers target
 bind(
     name = "python_headers",
@@ -621,16 +628,16 @@ new_local_repository(
 new_local_repository(
     name = "macos_opencv",
     build_file = "@//third_party:opencv_macos.BUILD",
-    # For local MacOS builds, the path should point to an opencv@3 installation.
+    # For local MacOS builds, the path should point to an opencv installation.
     # If you edit the path here, you will also need to update the corresponding
     # prefix in "opencv_macos.BUILD".
-    path = "/usr/local",  # e.g. /usr/local/Cellar for HomeBrew
+    path = "/usr/local/opencv4",  # Custom build without protobuf/DNN
 )
 
 new_local_repository(
     name = "macos_ffmpeg",
     build_file = "@//third_party:ffmpeg_macos.BUILD",
-    path = "/usr/local/opt/ffmpeg",
+    path = "/opt/homebrew/opt/ffmpeg",
 )
 
 new_local_repository(

@@ -163,9 +163,29 @@ cc_binary(
     name = "libpose_landmarker.dylib",
     linkopts = [
         "-Wl,-install_name,libpose_landmarker.dylib",
-        "-fvisibility=hidden",
     ],
     linkshared = True,
+    tags = [
+        "manual",
+        "nobuilder",
+        "notap",
+    ],
+    deps = [":pose_landmarker_c_lib"],
+)
+
+# Static library target for collecting all archives
+# Build with: bazel build --config darwin_arm64 -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+#   //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+# Then use the merge script to create the fat static library:
+#   ./merge_static_libs.sh bazel-bin/mediapipe/tasks/c/vision/pose_landmarker libpose_landmarker.a
+#
+# Alternatively, build with linkstatic and extract objects:
+# bazel build --config darwin_arm64 -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+#   //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static_bin
+cc_binary(
+    name = "pose_landmarker_static_bin",
+    srcs = ["pose_landmarker_static_main.cc"],
+    linkstatic = True,
     tags = [
         "manual",
         "nobuilder",
