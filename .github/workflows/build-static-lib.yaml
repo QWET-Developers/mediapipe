@@ -202,7 +202,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev libopencv-contrib-dev
+          sudo apt-get install -y libopencv-dev libopencv-contrib-dev opencv-data
+          # Verify OpenCV installation
+          pkg-config --cflags --libs opencv4 || pkg-config --cflags --libs opencv
+          ls -la /usr/include/opencv4/opencv2/core/version.hpp || ls -la /usr/include/opencv2/core/version.hpp
 
       - name: Build static library (linux)
         run: |
