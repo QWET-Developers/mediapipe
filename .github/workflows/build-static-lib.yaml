@@ -65,21 +65,18 @@ jobs:
         run: |
           # Get the bazel output base
           BAZEL_OUTPUT_BASE=$(bazel info output_base)
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          echo "=== Debug: Bazel paths ==="
           echo "Output base: $BAZEL_OUTPUT_BASE"
-          echo "Execroot: $BAZEL_EXECROOT"
 
-          echo "=== Debug: .a file counts ==="
-          echo "In bazel-bin: $(find -L bazel-bin -name '*.a' 2>/dev/null | wc -l)"
-          echo "In execroot: $(find -L $BAZEL_EXECROOT -name '*.a' 2>/dev/null | wc -l)"
-          echo "In output_base: $(find -L $BAZEL_OUTPUT_BASE -name '*.a' 2>/dev/null | wc -l)"
+          # Find ALL .a files, excluding only testdata (include everything else!)
+          echo "=== Finding .a files ==="
+          find -L $BAZEL_OUTPUT_BASE -name "*.a" \
+            ! -path "*/testdata/*" \
+            2>/dev/null > /tmp/all_libs.txt
+          echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
+          head -50 /tmp/all_libs.txt
 
-          echo "=== First 30 .a files in execroot ==="
-          find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null | head -30
-
-          echo "=== Merging all .a files from execroot ==="
-          libtool -static -o libpose_landmarker.a $(find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null)
+          echo "=== Merging ALL dependencies ==="
+          libtool -static -o libpose_landmarker.a $(cat /tmp/all_libs.txt)
           ls -lh libpose_landmarker.a
 
       - name: Verify symbols (arm64)
@@ -155,10 +152,16 @@ jobs:
 
       - name: Merge static libraries (x64)
         run: |
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          echo "Execroot: $BAZEL_EXECROOT"
-          echo "Total .a files: $(find -L $BAZEL_EXECROOT -name '*.a' 2>/dev/null | wc -l)"
-          libtool -static -o libpose_landmarker.a $(find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null)
+          BAZEL_OUTPUT_BASE=$(bazel info output_base)
+          echo "Output base: $BAZEL_OUTPUT_BASE"
+
+          # Find ALL .a files, excluding only testdata
+          find -L $BAZEL_OUTPUT_BASE -name "*.a" \
+            ! -path "*/testdata/*" \
+            2>/dev/null > /tmp/all_libs.txt
+          echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
+
+          libtool -static -o libpose_landmarker.a $(cat /tmp/all_libs.txt)
           ls -lh libpose_landmarker.a
 
       - name: Verify symbols (x64)
@@ -235,13 +238,18 @@ jobs:
 
       - name: Merge static libraries (linux)
         run: |
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          echo "Execroot: $BAZEL_EXECROOT"
-          echo "Total .a files: $(find -L $BAZEL_EXECROOT -name '*.a' 2>/dev/null | wc -l)"
+          BAZEL_OUTPUT_BASE=$(bazel info output_base)
+          echo "Output base: $BAZEL_OUTPUT_BASE"
+
+          # Find all .a files, excluding testdata
+          find -L $BAZEL_OUTPUT_BASE -name "*.a" \
+            ! -path "*/testdata/*" \
+            2>/dev/null > /tmp/all_libs.txt
+          echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
 
           # Extract all .a files and create merged archive
           mkdir -p merge_tmp && cd merge_tmp
-          for ar_file in $(find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null); do
+          for ar_file in $(cat /tmp/all_libs.txt); do
             ar -x "$ar_file" 2>/dev/null || true
           done
           ar rcs ../libpose_landmarker.a *.o 2>/dev/null || true
@@ -322,12 +330,14 @@ jobs:
       - name: Merge static libraries (windows)
         shell: pwsh
         run: |
-          # Get Bazel execution root
-          $BAZEL_EXECROOT = (bazel info execution_root).Trim()
-          Write-Host "Execroot: $BAZEL_EXECROOT"
+          # Get Bazel output base
+          $BAZEL_OUTPUT_BASE = (bazel info output_base).Trim()
+          Write-Host "Output base: $BAZEL_OUTPUT_BASE"
 
-          # Find all .lib files in execroot
-          $libs = Get-ChildItem -Path $BAZEL_EXECROOT -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          # Find all .lib files, excluding testdata
+          $libs = Get-ChildItem -Path $BAZEL_OUTPUT_BASE -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch "testdata" } |
+            Select-Object -ExpandProperty FullName
           Write-Host "Total .lib files: $($libs.Count)"
 
           if ($libs.Count -gt 0) {
