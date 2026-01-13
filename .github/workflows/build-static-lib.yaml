@@ -61,16 +61,26 @@ jobs:
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
 
-      - name: Merge static libraries
+      - name: Merge static libraries (arm64)
         run: |
+          echo "=== Debug: bazel-bin symlink ==="
+          ls -la bazel-bin
+          readlink bazel-bin || true
+          echo "=== Debug: .a file counts ==="
+          echo "Total .a files: $(find -L bazel-bin -name '*.a' 2>/dev/null | wc -l)"
+          echo "In external/: $(find -L bazel-bin/external -name '*.a' 2>/dev/null | wc -l)"
+          echo "In mediapipe/: $(find -L bazel-bin/mediapipe -name '*.a' 2>/dev/null | wc -l)"
+          echo "=== First 20 .a files ==="
+          find -L bazel-bin -name "*.a" 2>/dev/null | head -20
+          echo "=== Merging ==="
           libtool -static -o libpose_landmarker.a $(find -L bazel-bin -name "*.a" 2>/dev/null)
           ls -lh libpose_landmarker.a
 
-      - name: Verify symbols
+      - name: Verify symbols (arm64)
         run: |
           nm -g libpose_landmarker.a | grep "T _MpPoseLandmarker"
 
-      - name: Collect headers
+      - name: Collect headers (arm64)
         run: |
           mkdir -p dist/include
           cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker.h dist/include/
