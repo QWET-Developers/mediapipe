@@ -63,17 +63,23 @@ jobs:
 
       - name: Merge static libraries (arm64)
         run: |
-          echo "=== Debug: bazel-bin symlink ==="
-          ls -la bazel-bin
-          readlink bazel-bin || true
+          # Get the bazel output base
+          BAZEL_OUTPUT_BASE=$(bazel info output_base)
+          BAZEL_EXECROOT=$(bazel info execution_root)
+          echo "=== Debug: Bazel paths ==="
+          echo "Output base: $BAZEL_OUTPUT_BASE"
+          echo "Execroot: $BAZEL_EXECROOT"
+
           echo "=== Debug: .a file counts ==="
-          echo "Total .a files: $(find -L bazel-bin -name '*.a' 2>/dev/null | wc -l)"
-          echo "In external/: $(find -L bazel-bin/external -name '*.a' 2>/dev/null | wc -l)"
-          echo "In mediapipe/: $(find -L bazel-bin/mediapipe -name '*.a' 2>/dev/null | wc -l)"
-          echo "=== First 20 .a files ==="
-          find -L bazel-bin -name "*.a" 2>/dev/null | head -20
-          echo "=== Merging ==="
-          libtool -static -o libpose_landmarker.a $(find -L bazel-bin -name "*.a" 2>/dev/null)
+          echo "In bazel-bin: $(find -L bazel-bin -name '*.a' 2>/dev/null | wc -l)"
+          echo "In execroot: $(find -L $BAZEL_EXECROOT -name '*.a' 2>/dev/null | wc -l)"
+          echo "In output_base: $(find -L $BAZEL_OUTPUT_BASE -name '*.a' 2>/dev/null | wc -l)"
+
+          echo "=== First 30 .a files in execroot ==="
+          find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null | head -30
+
+          echo "=== Merging all .a files from execroot ==="
+          libtool -static -o libpose_landmarker.a $(find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null)
           ls -lh libpose_landmarker.a
 
       - name: Verify symbols (arm64)
@@ -147,16 +153,19 @@ jobs:
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
 
-      - name: Merge static libraries
+      - name: Merge static libraries (x64)
         run: |
-          libtool -static -o libpose_landmarker.a $(find -L bazel-bin -name "*.a" 2>/dev/null)
+          BAZEL_EXECROOT=$(bazel info execution_root)
+          echo "Execroot: $BAZEL_EXECROOT"
+          echo "Total .a files: $(find -L $BAZEL_EXECROOT -name '*.a' 2>/dev/null | wc -l)"
+          libtool -static -o libpose_landmarker.a $(find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null)
           ls -lh libpose_landmarker.a
 
-      - name: Verify symbols
+      - name: Verify symbols (x64)
         run: |
           nm -g libpose_landmarker.a | grep "T _MpPoseLandmarker"
 
-      - name: Collect headers
+      - name: Collect headers (x64)
         run: |
           mkdir -p dist/include
           cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker.h dist/include/
@@ -224,12 +233,15 @@ jobs:
             --action_env=CC=gcc-12 --action_env=CXX=g++-12 \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
 
-      - name: Merge static libraries
+      - name: Merge static libraries (linux)
         run: |
-          find -L bazel-bin -name "*.a" -exec ar -t {} \; > /dev/null 2>&1 || true
+          BAZEL_EXECROOT=$(bazel info execution_root)
+          echo "Execroot: $BAZEL_EXECROOT"
+          echo "Total .a files: $(find -L $BAZEL_EXECROOT -name '*.a' 2>/dev/null | wc -l)"
+
           # Extract all .a files and create merged archive
           mkdir -p merge_tmp && cd merge_tmp
-          for ar_file in $(find -L ../bazel-bin -name "*.a" 2>/dev/null); do
+          for ar_file in $(find -L $BAZEL_EXECROOT -name "*.a" 2>/dev/null); do
             ar -x "$ar_file" 2>/dev/null || true
           done
           ar rcs ../libpose_landmarker.a *.o 2>/dev/null || true
@@ -307,11 +319,16 @@ jobs:
             --disk_cache=$env:LOCALAPPDATA\bazel `
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
 
-      - name: Merge static libraries
+      - name: Merge static libraries (windows)
         shell: pwsh
         run: |
-          # Find all .lib files
-          $libs = Get-ChildItem -Path bazel-bin -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          # Get Bazel execution root
+          $BAZEL_EXECROOT = (bazel info execution_root).Trim()
+          Write-Host "Execroot: $BAZEL_EXECROOT"
+
+          # Find all .lib files in execroot
+          $libs = Get-ChildItem -Path $BAZEL_EXECROOT -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+          Write-Host "Total .lib files: $($libs.Count)"
 
           if ($libs.Count -gt 0) {
             # Use lib.exe to merge all static libraries
