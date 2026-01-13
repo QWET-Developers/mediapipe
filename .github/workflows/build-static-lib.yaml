@@ -55,31 +55,15 @@ jobs:
           sudo mkdir -p /usr/local/opencv4
           sudo ln -sf $(brew --prefix opencv@4)/* /usr/local/opencv4/
 
-      - name: Build pose_landmarker_lib
+      - name: Build static library (arm64)
         run: |
           bazel build --config darwin_arm64 -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+            --experimental_cc_static_library \
+            --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
-            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
-      - name: Merge static libraries (arm64)
-        run: |
-          echo "=== Getting all dependency .a files via cquery ==="
-          bazel cquery --config darwin_arm64 --define MEDIAPIPE_DISABLE_GPU=1 \
-            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' \
-            --output=files 2>/dev/null | grep '\.a$' > /tmp/all_libs.txt
-
-          # Also add external opencv libraries (may not be in cquery output)
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          find -L $BAZEL_EXECROOT/external/macos_opencv -name "*.a" 2>/dev/null >> /tmp/all_libs.txt
-
-          # Remove duplicates
-          sort -u /tmp/all_libs.txt -o /tmp/all_libs.txt
-
-          echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
-          head -50 /tmp/all_libs.txt
-
-          echo "=== Merging ALL dependencies ==="
-          libtool -static -o libpose_landmarker.a $(cat /tmp/all_libs.txt)
+          cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
           ls -lh libpose_landmarker.a
 
       - name: Verify symbols (arm64)
@@ -147,26 +131,15 @@ jobs:
           sudo mkdir -p /usr/local/opencv4
           sudo ln -sf $(brew --prefix opencv@4)/* /usr/local/opencv4/
 
-      - name: Build pose_landmarker_lib
+      - name: Build static library (x64)
         run: |
           bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+            --experimental_cc_static_library \
+            --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
-            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
-      - name: Merge static libraries (x64)
-        run: |
-          echo "=== Getting all dependency .a files via cquery ==="
-          bazel cquery --define MEDIAPIPE_DISABLE_GPU=1 \
-            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' \
-            --output=files 2>/dev/null | grep '\.a$' > /tmp/all_libs.txt
-
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          find -L $BAZEL_EXECROOT/external/macos_opencv -name "*.a" 2>/dev/null >> /tmp/all_libs.txt
-          sort -u /tmp/all_libs.txt -o /tmp/all_libs.txt
-
-          echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
-
-          libtool -static -o libpose_landmarker.a $(cat /tmp/all_libs.txt)
+          cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
           ls -lh libpose_landmarker.a
 
       - name: Verify symbols (x64)
@@ -234,30 +207,16 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
 
-      - name: Build pose_landmarker_lib
+      - name: Build static library (linux)
         run: |
           bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+            --experimental_cc_static_library \
+            --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
             --action_env=CC=gcc-12 --action_env=CXX=g++-12 \
-            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
-      - name: Merge static libraries (linux)
-        run: |
-          echo "=== Getting all dependency .a files via cquery ==="
-          bazel cquery --define MEDIAPIPE_DISABLE_GPU=1 \
-            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' \
-            --output=files 2>/dev/null | grep '\.a$' > /tmp/all_libs.txt
-
-          sort -u /tmp/all_libs.txt -o /tmp/all_libs.txt
-          echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
-
-          # Extract all .a files and create merged archive
-          mkdir -p merge_tmp && cd merge_tmp
-          for ar_file in $(cat /tmp/all_libs.txt); do
-            ar -x "$ar_file" 2>/dev/null || true
-          done
-          ar rcs ../libpose_landmarker.a *.o 2>/dev/null || true
-          cd .. && rm -rf merge_tmp
+          cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
           ls -lh libpose_landmarker.a
 
       - name: Verify symbols
@@ -325,50 +284,24 @@ jobs:
           choco install opencv -y
           echo "OPENCV_DIR=C:\tools\opencv\build" >> $env:GITHUB_ENV
 
-      - name: Build pose_landmarker_lib
+      - name: Build static library (windows)
         run: |
           bazel build -c opt --define MEDIAPIPE_DISABLE_GPU=1 `
+            --experimental_cc_static_library `
+            --repo_env=HERMETIC_PYTHON_VERSION=3.11 `
             --disk_cache=$env:LOCALAPPDATA\bazel `
-            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib
+            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
-      - name: Merge static libraries (windows)
-        shell: pwsh
-        run: |
-          Write-Host "=== Getting all dependency .lib files via cquery ==="
-          $cqueryOutput = bazel cquery --define MEDIAPIPE_DISABLE_GPU=1 `
-            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' `
-            --output=files 2>$null
-          $libs = $cqueryOutput | Where-Object { $_ -match '\.lib$' }
-          Write-Host "Total .lib files: $($libs.Count)"
-
-          if ($libs.Count -gt 0) {
-            # Use lib.exe to merge all static libraries
-            $libArgs = "/OUT:libpose_landmarker.lib " + ($libs -join " ")
-            Invoke-Expression "lib.exe $libArgs"
-          }
-
-          # Show result
-          if (Test-Path "libpose_landmarker.lib") {
-            Get-Item "libpose_landmarker.lib" | Select-Object Name, Length
-          } else {
-            Write-Host "Warning: libpose_landmarker.lib not created, falling back to individual libs"
-          }
+          Copy-Item bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.lib
+          Get-Item libpose_landmarker.lib | Select-Object Name, Length
 
       - name: Collect files
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist\lib
           New-Item -ItemType Directory -Force -Path dist\include
 
-          # Copy merged library or fallback to individual
-          if (Test-Path "libpose_landmarker.lib") {
-            Copy-Item "libpose_landmarker.lib" -Destination "dist\lib\"
-          } else {
-            # Fallback: copy individual libs
-            Get-ChildItem -Path bazel-bin -Recurse -Filter "*.lib" | ForEach-Object {
-              Copy-Item $_.FullName -Destination "dist\lib\" -ErrorAction SilentlyContinue
-            }
-          }
+          # Copy static library
+          Copy-Item "libpose_landmarker.lib" -Destination "dist\"
 
           # Copy headers
           Copy-Item "mediapipe\tasks\c\vision\pose_landmarker\pose_landmarker.h" -Destination "dist\include\"

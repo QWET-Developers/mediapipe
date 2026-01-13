@@ -14,6 +14,7 @@
 
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_static_library.bzl", "cc_static_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 licenses(["notice"])
@@ -186,6 +187,20 @@ cc_binary(
     name = "pose_landmarker_static_bin",
     srcs = ["pose_landmarker_static_main.cc"],
     linkstatic = True,
+    tags = [
+        "manual",
+        "nobuilder",
+        "notap",
+    ],
+    deps = [":pose_landmarker_lib"],
+)
+
+# Fully self-contained static library with all dependencies bundled
+# Build with: bazel build --config darwin_arm64 -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+#   //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
+cc_static_library(
+    name = "pose_landmarker_static",
+    visibility = ["//visibility:public"],
     tags = [
         "manual",
         "nobuilder",
