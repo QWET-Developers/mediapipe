@@ -291,7 +291,12 @@ jobs:
             --disk_cache=$env:LOCALAPPDATA\bazel `
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
-          Copy-Item bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.lib
+          # Find the generated static library (could be .a or .lib depending on toolchain)
+          Get-ChildItem -Path bazel-bin/mediapipe/tasks/c/vision/pose_landmarker -Filter "*pose_landmarker_static*" -Recurse
+
+          # Copy whichever exists
+          $libFile = Get-ChildItem -Path bazel-bin/mediapipe/tasks/c/vision/pose_landmarker -Filter "*pose_landmarker_static*" | Select-Object -First 1
+          Copy-Item $libFile.FullName -Destination "libpose_landmarker.lib"
           Get-Item libpose_landmarker.lib | Select-Object Name, Length
 
       - name: Collect files
