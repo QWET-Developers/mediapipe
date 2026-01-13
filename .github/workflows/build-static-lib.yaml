@@ -166,7 +166,7 @@ jobs:
           path: dist/
 
   build-linux-x64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -206,12 +206,10 @@ jobs:
 
       - name: Build static library (linux)
         run: |
-          # Disable XNNPACK AVX-VNNI-INT8 microkernels (requires newer binutils)
           bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
             --experimental_cc_static_library \
             --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
-            --define=xnn_enable_avxvnniint8=false \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
           cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
