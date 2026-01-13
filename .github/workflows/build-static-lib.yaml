@@ -89,82 +89,6 @@ jobs:
           name: libpose_landmarker-macos-arm64
           path: dist/
 
-  build-macos-x64:
-    runs-on: macos-13
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        run: |
-          pip install numpy
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.14.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-macos-x64
-          repository-cache: true
-          bazelisk-version: 1.x
-
-      - name: Cache Bazel build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/bazel
-            ~/.cache/bazelisk
-          key: bazel-macos-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-${{ github.sha }}
-          restore-keys: |
-            bazel-macos-x64-${{ hashFiles('WORKSPACE', '.bazelrc', '.bazelversion') }}-
-            bazel-macos-x64-
-
-      - name: Install OpenCV
-        run: |
-          brew install opencv@4
-          brew link opencv@4
-          # Create symlink for WORKSPACE path
-          sudo mkdir -p /usr/local/opencv4
-          sudo ln -sf $(brew --prefix opencv@4)/* /usr/local/opencv4/
-
-      - name: Build static library (x64)
-        run: |
-          bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
-            --experimental_cc_static_library \
-            --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
-            --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
-            //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
-
-          cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
-          ls -lh libpose_landmarker.a
-
-      - name: Verify symbols (x64)
-        run: |
-          nm -g libpose_landmarker.a | grep "T _MpPoseLandmarker"
-
-      - name: Collect headers (x64)
-        run: |
-          mkdir -p dist/include
-          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker.h dist/include/
-          cp mediapipe/tasks/c/vision/pose_landmarker/pose_landmarker_result.h dist/include/
-          cp mediapipe/tasks/c/core/base_options.h dist/include/
-          cp mediapipe/tasks/c/core/common.h dist/include/
-          cp mediapipe/tasks/c/core/mp_status.h dist/include/
-          cp mediapipe/tasks/c/vision/core/image.h dist/include/
-          cp mediapipe/tasks/c/vision/core/image_processing_options.h dist/include/
-          cp mediapipe/tasks/c/components/containers/landmark.h dist/include/
-          mv libpose_landmarker.a dist/
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libpose_landmarker-macos-x64
-          path: dist/
-
   build-linux-x64:
     runs-on: ubuntu-24.04
     steps:
@@ -328,7 +252,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-macos-arm64, build-macos-x64, build-linux-x64, build-windows-x64]
+    needs: [build-macos-arm64, build-linux-x64, build-windows-x64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -342,8 +266,6 @@ jobs:
         run: |
           cd artifacts/libpose_landmarker-macos-arm64
           tar czvf ../../libpose_landmarker-macos-arm64.tar.gz .
-          cd ../libpose_landmarker-macos-x64
-          tar czvf ../../libpose_landmarker-macos-x64.tar.gz .
           cd ../libpose_landmarker-linux-x64
           tar czvf ../../libpose_landmarker-linux-x64.tar.gz .
           cd ../libpose_landmarker-windows-x64
@@ -354,7 +276,6 @@ jobs:
         with:
           files: |
             libpose_landmarker-macos-arm64.tar.gz
-            libpose_landmarker-macos-x64.tar.gz
             libpose_landmarker-linux-x64.tar.gz
             libpose_landmarker-windows-x64.zip
           generate_release_notes: true
