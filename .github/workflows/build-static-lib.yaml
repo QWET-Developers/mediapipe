@@ -202,20 +202,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # Add Ubuntu Toolchain PPA for GCC 13 (needed for -mavxvnniint8 in XNNPACK)
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install -y libopencv-dev libopencv-contrib-dev gcc-13 g++-13
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+          sudo apt-get install -y libopencv-dev libopencv-contrib-dev
 
       - name: Build static library (linux)
         run: |
+          # Disable XNNPACK AVX-VNNI-INT8 microkernels (requires newer binutils)
           bazel build -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
             --experimental_cc_static_library \
             --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
-            --action_env=CC=gcc-13 --action_env=CXX=g++-13 \
+            --define=xnn_enable_avxvnniint8=false \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
           cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
