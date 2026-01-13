@@ -202,10 +202,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev libopencv-contrib-dev gcc-12 g++-12
-          # Set GCC 12 as default (supports newer AVX instructions)
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+          # GCC 13 is needed for -mavxvnniint8 support in XNNPACK
+          sudo apt-get install -y libopencv-dev libopencv-contrib-dev gcc-13 g++-13
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
 
       - name: Build static library (linux)
         run: |
@@ -213,7 +213,7 @@ jobs:
             --experimental_cc_static_library \
             --repo_env=HERMETIC_PYTHON_VERSION=3.11 \
             --disk_cache=${{ env.BAZEL_CACHE_DIR }} \
-            --action_env=CC=gcc-12 --action_env=CXX=g++-12 \
+            --action_env=CC=gcc-13 --action_env=CXX=g++-13 \
             //mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_static
 
           cp bazel-bin/mediapipe/tasks/c/vision/pose_landmarker/libpose_landmarker_static.a libpose_landmarker.a
