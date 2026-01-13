@@ -63,20 +63,17 @@ jobs:
 
       - name: Merge static libraries (arm64)
         run: |
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          echo "Execroot: $BAZEL_EXECROOT"
+          echo "=== Getting all dependency .a files via cquery ==="
+          bazel cquery --config darwin_arm64 --define MEDIAPIPE_DISABLE_GPU=1 \
+            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' \
+            --output=files 2>/dev/null | grep '\.a$' > /tmp/all_libs.txt
 
-          # Find .a files in bazel-out (build outputs) and external (dependencies)
-          # Exclude: testdata, llvm-raw test files, Inputs directories
-          echo "=== Finding .a files ==="
-          find -L $BAZEL_EXECROOT/bazel-out -name "*.a" 2>/dev/null > /tmp/all_libs.txt
-          find -L $BAZEL_EXECROOT/external -name "*.a" \
-            ! -path "*/test/*" \
-            ! -path "*/Test/*" \
-            ! -path "*/Inputs/*" \
-            ! -path "*/testdata/*" \
-            ! -path "*llvm-raw*" \
-            2>/dev/null >> /tmp/all_libs.txt
+          # Also add external opencv libraries (may not be in cquery output)
+          BAZEL_EXECROOT=$(bazel info execution_root)
+          find -L $BAZEL_EXECROOT/external/macos_opencv -name "*.a" 2>/dev/null >> /tmp/all_libs.txt
+
+          # Remove duplicates
+          sort -u /tmp/all_libs.txt -o /tmp/all_libs.txt
 
           echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
           head -50 /tmp/all_libs.txt
@@ -158,18 +155,15 @@ jobs:
 
       - name: Merge static libraries (x64)
         run: |
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          echo "Execroot: $BAZEL_EXECROOT"
+          echo "=== Getting all dependency .a files via cquery ==="
+          bazel cquery --define MEDIAPIPE_DISABLE_GPU=1 \
+            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' \
+            --output=files 2>/dev/null | grep '\.a$' > /tmp/all_libs.txt
 
-          # Find .a files in bazel-out and external, excluding test files
-          find -L $BAZEL_EXECROOT/bazel-out -name "*.a" 2>/dev/null > /tmp/all_libs.txt
-          find -L $BAZEL_EXECROOT/external -name "*.a" \
-            ! -path "*/test/*" \
-            ! -path "*/Test/*" \
-            ! -path "*/Inputs/*" \
-            ! -path "*/testdata/*" \
-            ! -path "*llvm-raw*" \
-            2>/dev/null >> /tmp/all_libs.txt
+          BAZEL_EXECROOT=$(bazel info execution_root)
+          find -L $BAZEL_EXECROOT/external/macos_opencv -name "*.a" 2>/dev/null >> /tmp/all_libs.txt
+          sort -u /tmp/all_libs.txt -o /tmp/all_libs.txt
+
           echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
 
           libtool -static -o libpose_landmarker.a $(cat /tmp/all_libs.txt)
@@ -249,18 +243,12 @@ jobs:
 
       - name: Merge static libraries (linux)
         run: |
-          BAZEL_EXECROOT=$(bazel info execution_root)
-          echo "Execroot: $BAZEL_EXECROOT"
+          echo "=== Getting all dependency .a files via cquery ==="
+          bazel cquery --define MEDIAPIPE_DISABLE_GPU=1 \
+            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' \
+            --output=files 2>/dev/null | grep '\.a$' > /tmp/all_libs.txt
 
-          # Find .a files in bazel-out and external, excluding test files
-          find -L $BAZEL_EXECROOT/bazel-out -name "*.a" 2>/dev/null > /tmp/all_libs.txt
-          find -L $BAZEL_EXECROOT/external -name "*.a" \
-            ! -path "*/test/*" \
-            ! -path "*/Test/*" \
-            ! -path "*/Inputs/*" \
-            ! -path "*/testdata/*" \
-            ! -path "*llvm-raw*" \
-            2>/dev/null >> /tmp/all_libs.txt
+          sort -u /tmp/all_libs.txt -o /tmp/all_libs.txt
           echo "Total .a files: $(wc -l < /tmp/all_libs.txt)"
 
           # Extract all .a files and create merged archive
@@ -346,16 +334,11 @@ jobs:
       - name: Merge static libraries (windows)
         shell: pwsh
         run: |
-          $BAZEL_EXECROOT = (bazel info execution_root).Trim()
-          Write-Host "Execroot: $BAZEL_EXECROOT"
-
-          # Find .lib files in bazel-out and external, excluding test files
-          $libs = @()
-          $libs += Get-ChildItem -Path "$BAZEL_EXECROOT\bazel-out" -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName
-          $libs += Get-ChildItem -Path "$BAZEL_EXECROOT\external" -Recurse -Filter "*.lib" -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -notmatch "(test|Test|Inputs|testdata|llvm-raw)" } |
-            Select-Object -ExpandProperty FullName
+          Write-Host "=== Getting all dependency .lib files via cquery ==="
+          $cqueryOutput = bazel cquery --define MEDIAPIPE_DISABLE_GPU=1 `
+            'deps(//mediapipe/tasks/c/vision/pose_landmarker:pose_landmarker_lib)' `
+            --output=files 2>$null
+          $libs = $cqueryOutput | Where-Object { $_ -match '\.lib$' }
           Write-Host "Total .lib files: $($libs.Count)"
 
           if ($libs.Count -gt 0) {
