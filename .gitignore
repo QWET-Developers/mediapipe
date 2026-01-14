@@ -12,3 +12,7 @@ node_modules/
 *.so
 *.lib
 dist/
+
+# Allow opencv-mobile static libraries
+!opencv/**/*.a
+!opencv/**/opencv2
