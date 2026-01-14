@@ -35,25 +35,80 @@ exports_files(["LICENSE"])
 # "include/opencv4/opencv2/**/*.h*" and the include prefix needs to be set to
 # "include/opencv4".
 
-# OpenCV 4 configuration - Custom build without protobuf/DNN
-# Path is set to /usr/local/opencv4 in WORKSPACE
+# OpenCV 4 configuration - Static library build for self-contained distribution
+# Path is set to /usr/local/opencv4 in WORKSPACE (symlinked from Homebrew)
+#
+# Using cc_import for static libraries (.a) to properly bundle OpenCV
+# into the final static library without external dependencies.
+
+cc_import(
+    name = "opencv_core",
+    static_library = "lib/libopencv_core.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_calib3d",
+    static_library = "lib/libopencv_calib3d.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_features2d",
+    static_library = "lib/libopencv_features2d.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_flann",
+    static_library = "lib/libopencv_flann.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_highgui",
+    static_library = "lib/libopencv_highgui.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_imgcodecs",
+    static_library = "lib/libopencv_imgcodecs.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_imgproc",
+    static_library = "lib/libopencv_imgproc.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_video",
+    static_library = "lib/libopencv_video.a",
+    alwayslink = True,
+)
+
+cc_import(
+    name = "opencv_videoio",
+    static_library = "lib/libopencv_videoio.a",
+    alwayslink = True,
+)
 
 cc_library(
     name = "opencv",
-    srcs = glob(
-        [
-            "lib/libopencv_core.dylib",
-            "lib/libopencv_calib3d.dylib",
-            "lib/libopencv_features2d.dylib",
-            "lib/libopencv_highgui.dylib",
-            "lib/libopencv_imgcodecs.dylib",
-            "lib/libopencv_imgproc.dylib",
-            "lib/libopencv_video.dylib",
-            "lib/libopencv_videoio.dylib",
-        ],
-    ),
     hdrs = glob(["include/opencv4/opencv2/**/*.h*"]),
     includes = ["include/opencv4/"],
-    linkstatic = 1,
     visibility = ["//visibility:public"],
+    deps = [
+        ":opencv_core",
+        ":opencv_calib3d",
+        ":opencv_features2d",
+        ":opencv_flann",
+        ":opencv_highgui",
+        ":opencv_imgcodecs",
+        ":opencv_imgproc",
+        ":opencv_video",
+        ":opencv_videoio",
+    ],
 )
